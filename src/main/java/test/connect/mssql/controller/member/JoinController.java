@@ -64,7 +64,7 @@ public class JoinController {
         String email = mailAuthRequest.getEmail();
         String ran = mailAuthRequest.getRan();
 
-        log.info("사용자 입력 = {}", email);
+        log.info("사용자 입력 = {}", ran);
 
         try{
             boolean authed = mailService.mail_authentication(ran, email);
@@ -74,6 +74,7 @@ public class JoinController {
                 return ResponseEntity.status(HttpServletResponse.SC_OK)
                         .body(ApiResponse.createError("인증이 완료되었습니다."));
             }else{
+
                 return ResponseEntity.status(HttpServletResponse.SC_BAD_REQUEST)
                         .body(ApiResponse.createError("인증번호가 일치하지 않습니다."));
             }

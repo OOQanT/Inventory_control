@@ -62,6 +62,9 @@ public class MailService {
             message.setText(setContext(ran), "UTF-8", "html");
             message.addRecipients(MimeMessage.RecipientType.TO,email);*/
 
+            Mail mail = new Mail(ran,email);
+            mailRepository.save(mail);
+
             javaMailSender.send(message);
         }catch (MessagingException e){
             e.printStackTrace();
