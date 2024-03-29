@@ -1,16 +1,36 @@
 package test.connect.mssql.config;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.logout.LogoutFilter;
+import test.connect.mssql.jwt.CustomLogoutFilter;
+import test.connect.mssql.jwt.JWTFilter;
+import test.connect.mssql.jwt.JWTUtil;
+import test.connect.mssql.jwt.LoginFilter;
+import test.connect.mssql.repository.refresh.RefreshRepository;
 
 @EnableWebSecurity
 @Configuration
+@RequiredArgsConstructor
 public class SecurityConfig {
 
+    private final AuthenticationConfiguration authenticationConfiguration;
+    private final JWTUtil jwtUtil;
+    private final RefreshRepository refreshRepository;
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
+
+        return configuration.getAuthenticationManager();
+    }
     @Bean
     public BCryptPasswordEncoder bCryptPasswordEncoder(){
         return new BCryptPasswordEncoder();
@@ -19,41 +39,38 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception{
 
+        //csrf disable
+        http
+                .csrf((auth) -> auth.disable());
+
+        //From 로그인 방식 disable
+        http
+                .formLogin((auth) -> auth.disable());
+
+        //http basic 인증 방식 disable
+        http
+                .httpBasic((auth) -> auth.disable());
+
+
         http.
                 authorizeHttpRequests((auth) -> auth
-                        .requestMatchers("/","/login","/loginProc","/join","/joinProc","/send_JoinMail").permitAll()
+                        .requestMatchers("/","/login","/joinProc","/send_JoinMail","/reissue").permitAll()
                         .requestMatchers("/admin").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 );
 
         http
-                .csrf((auth) -> auth.disable());
-
+                .addFilterBefore(new JWTFilter(jwtUtil), LoginFilter.class);
         http
-                .formLogin((auth) -> auth
-                        .loginProcessingUrl("/login").permitAll()
-                );
-        //.httpBasic(Customizer.withDefaults());
+                .addFilterAt(new LoginFilter(authenticationManager(authenticationConfiguration), jwtUtil, refreshRepository), UsernamePasswordAuthenticationFilter.class);
 
+        http.
+                addFilterBefore(new CustomLogoutFilter(jwtUtil,refreshRepository), LogoutFilter.class);
+
+        //세션 설정
         http
-                .logout((auth) -> auth
-                        .logoutUrl("/logout")
-                        .logoutSuccessUrl("/")
-                );
-
-        http
-                .sessionManagement((auth) -> auth
-                                .maximumSessions(1) // 1개의 id에 허용할 수 있는 중복 로그인 갯수
-                                .maxSessionsPreventsLogin(false) // 허용된 중복 로그인 갯수를 초과한 경우
-                        // true 일때 새로 로그인하는 것을 차단
-                        // false 일때 기존 세션 하나 삭제
-                );
-
-        http
-                .sessionManagement((auth) -> auth
-                        .sessionFixation().changeSessionId() // 세션 고정 공격을 보호
-                );
-
+                .sessionManagement((session) -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
         return http.build();
     }

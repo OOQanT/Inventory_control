@@ -43,6 +43,11 @@ public class Member {
         this.phoneNumber = joinDto.getStartNumber() + "-" + joinDto.getMiddleNumber() + "-" + joinDto.getLastNumber();
     }
 
+    public Member(String username, String role) {
+        this.username = username;
+        this.role = role;
+    }
+
     public void changeRole(String role){
         this.role = role;
     }
